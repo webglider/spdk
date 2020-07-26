@@ -249,6 +249,9 @@ static bool g_no_shn_notification;
 static bool g_mix_specified;
 /* Default to 10 seconds for the keep alive value. This value is arbitrary. */
 static uint32_t g_keep_alive_timeout_in_ms = 10000;
+#ifdef SMART_POLL
+static uint32_t g_sleep_interval = 0;
+#endif
 
 static const char *g_core_mask;
 
@@ -264,6 +267,40 @@ static int g_file_optind; /* Index of first filename in argv */
 
 static inline void
 task_complete(struct perf_task *task);
+
+#ifdef SMART_POLL
+void sleep_nanos(long delay);
+// Yield for certain number of nanoseconds
+// delay should not exceed 1e9 micros
+void sleep_nanos(long delay)
+{
+ struct timespec tv;
+ /* Construct the timespec from the number of whole seconds... */
+ tv.tv_sec = 0;
+ /* ... and the remainder in nanoseconds. */
+ tv.tv_nsec = delay;
+
+ while (1)
+ {
+  /* Sleep for the time specified in tv. If interrupted by a
+    signal, place the remaining time left to sleep back into tv. */
+  int rval = nanosleep (&tv, &tv);
+  if (rval == 0)
+   /* Completed the entire sleep time; all done. */
+   return;
+  else if (errno == EINTR)
+   /* Interrupted by a signal. Try again. */
+   continue;
+  else 
+  {
+	/* Some other error; bail out. */
+	fprintf(stderr, "nanesleep failed\n");
+	exit(1);
+  }
+   
+ }
+}
+#endif
 
 #ifdef SPDK_CONFIG_URING
 
@@ -1285,6 +1322,11 @@ work_fn(void *arg)
 		if (tsc_current > tsc_end) {
 			break;
 		}
+
+		#ifdef SMART_POLL
+		if(g_sleep_interval > 0)
+			sleep_nanos(g_sleep_interval * 1000);
+		#endif
 	}
 
 	/* drain the io of each ns_ctx in round robin to make the fairness */
@@ -1772,7 +1814,7 @@ parse_args(int argc, char **argv)
 	long int val;
 	int rc;
 
-	while ((op = getopt(argc, argv, "c:e:i:lo:q:r:k:s:t:w:C:DGHILM:NP:RT:U:V")) != -1) {
+	while ((op = getopt(argc, argv, "c:e:i:lo:q:r:k:s:t:w:z:C:DGHILM:NP:RT:U:V")) != -1) {
 		switch (op) {
 		case 'i':
 		case 'C':
@@ -1784,6 +1826,7 @@ parse_args(int argc, char **argv)
 		case 't':
 		case 'M':
 		case 'U':
+		case 'z':
 			val = spdk_strtol(optarg, 10);
 			if (val < 0) {
 				fprintf(stderr, "Converting a string to integer failed\n");
@@ -1821,6 +1864,16 @@ parse_args(int argc, char **argv)
 			case 'U':
 				g_nr_unused_io_queues = val;
 				break;
+			case 'z':
+			#ifdef SMART_POLL
+				g_sleep_interval = val;
+				break;
+			#else
+				fprintf(stderr, "%s must be configured with smart polling for -z\n",
+					argv[0]);
+				usage(argv[0]);
+				return 1;
+			#endif
 			}
 			break;
 		case 'c':
