@@ -199,7 +199,7 @@ struct ns_fn_table {
 	int	(*submit_io)(struct perf_task *task, struct ns_worker_ctx *ns_ctx,
 			     struct ns_entry *entry, uint64_t offset_in_ios);
 
-	void	(*check_io)(struct ns_worker_ctx *ns_ctx);
+	int	(*check_io)(struct ns_worker_ctx *ns_ctx);
 
 	void	(*verify_io)(struct perf_task *task, struct ns_entry *entry);
 
@@ -340,7 +340,7 @@ uring_submit_io(struct perf_task *task, struct ns_worker_ctx *ns_ctx,
 	return 0;
 }
 
-static void
+static int
 uring_check_io(struct ns_worker_ctx *ns_ctx)
 {
 	int i, count, to_complete, to_submit, ret = 0;
@@ -363,7 +363,7 @@ uring_check_io(struct ns_worker_ctx *ns_ctx)
 	}
 
 	if (ret < 0) {
-		return;
+		return 0;
 	}
 
 	if (to_complete > 0) {
@@ -380,6 +380,8 @@ uring_check_io(struct ns_worker_ctx *ns_ctx)
 			task_complete(task);
 		}
 	}
+
+	return count;
 }
 
 static void
@@ -468,7 +470,7 @@ aio_submit_io(struct perf_task *task, struct ns_worker_ctx *ns_ctx,
 	}
 }
 
-static void
+static int
 aio_check_io(struct ns_worker_ctx *ns_ctx)
 {
 	int count, i;
@@ -486,6 +488,8 @@ aio_check_io(struct ns_worker_ctx *ns_ctx)
 	for (i = 0; i < count; i++) {
 		task_complete(ns_ctx->u.aio.events[i].data);
 	}
+
+	return count;
 }
 
 static void
@@ -739,7 +743,7 @@ perf_disconnect_cb(struct spdk_nvme_qpair *qpair, void *ctx)
 
 }
 
-static void
+static int
 nvme_check_io(struct ns_worker_ctx *ns_ctx)
 {
 	int64_t rc;
@@ -749,6 +753,8 @@ nvme_check_io(struct ns_worker_ctx *ns_ctx)
 		fprintf(stderr, "NVMe io qpair process completion error\n");
 		exit(1);
 	}
+
+	return (int)rc;
 }
 
 static void
