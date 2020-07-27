@@ -1306,34 +1306,71 @@ work_fn(void *arg)
 		ns_ctx = ns_ctx->next;
 	}
 
-	while (1) {
-		/*
-		 * Check for completed I/O for each controller. A new
-		 * I/O will be submitted in the io_complete callback
-		 * to replace each I/O that is completed.
-		 */
-		ns_ctx = worker->ns_ctx;
-		while (ns_ctx != NULL) {
-			ns_ctx->entry->fn_table->check_io(ns_ctx);
-			ns_ctx = ns_ctx->next;
-		}
-
-		tsc_current = spdk_get_ticks();
-
-		if (worker->lcore == g_master_core && tsc_current > tsc_next_print) {
-			tsc_next_print += g_tsc_rate;
-			print_periodic_performance();
-		}
-
-		if (tsc_current > tsc_end) {
-			break;
-		}
-
-		#ifdef SMART_POLL
+#ifdef SMART_POLL
+// Hybrid polling
+	while(1) {
+		// Sleep
 		if(g_sleep_interval > 0)
 			sleep_nanos(g_sleep_interval * 1000);
-		#endif
+
+		// Poll for completions
+		bool completion = false;
+		while(!completion)
+		{
+			ns_ctx = worker->ns_ctx;
+			while (ns_ctx != NULL) {
+				if(ns_ctx->entry->fn_table->check_io(ns_ctx) > 0)
+					completion = true;
+				ns_ctx = ns_ctx->next;
+			}
+
+			tsc_current = spdk_get_ticks();
+
+			if (worker->lcore == g_master_core && tsc_current > tsc_next_print) {
+				tsc_next_print += g_tsc_rate;
+				print_periodic_performance();
+			}
+
+			if (tsc_current > tsc_end) {
+				break;
+			}
+		}
+
+		if(tsc_current > tsc_end)
+		{
+			break;
+		}
+		
 	}
+
+#else
+	while (1) {
+			/*
+			* Check for completed I/O for each controller. A new
+			* I/O will be submitted in the io_complete callback
+			* to replace each I/O that is completed.
+			*/
+			ns_ctx = worker->ns_ctx;
+			while (ns_ctx != NULL) {
+				ns_ctx->entry->fn_table->check_io(ns_ctx);
+				ns_ctx = ns_ctx->next;
+			}
+
+			tsc_current = spdk_get_ticks();
+
+			if (worker->lcore == g_master_core && tsc_current > tsc_next_print) {
+				tsc_next_print += g_tsc_rate;
+				print_periodic_performance();
+			}
+
+			if (tsc_current > tsc_end) {
+				break;
+			}
+
+		}
+#endif
+
+	
 
 	/* drain the io of each ns_ctx in round robin to make the fairness */
 	do {
