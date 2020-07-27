@@ -35,6 +35,10 @@
 
 #include "spdk/stdinc.h"
 
+#ifdef SMART_POLL
+#include <sys/prctl.h>
+#endif
+
 #include "spdk/env.h"
 #include "spdk/fd.h"
 #include "spdk/nvme.h"
@@ -2306,6 +2310,11 @@ nvme_poll_ctrlrs(void *arg)
 
 int main(int argc, char **argv)
 {
+	#ifdef SMART_POLL
+	// To improve timer precision
+	prctl(PR_SET_TIMERSLACK, 1, 0, 0, 0);
+	#endif
+
 	int rc;
 	struct worker_thread *worker, *master_worker;
 	struct spdk_env_opts opts;
