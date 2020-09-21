@@ -255,6 +255,7 @@ static bool g_mix_specified;
 static uint32_t g_keep_alive_timeout_in_ms = 10000;
 #ifdef SMART_POLL
 static uint32_t g_sleep_interval = 0;
+static uint32_t g_pre_iterations = 0;
 #endif
 
 static const char *g_core_mask;
@@ -1313,6 +1314,46 @@ work_fn(void *arg)
 #ifdef SMART_POLL
 // Hybrid polling
 	while(1) {
+		// Pre-sleep iterations to deal with async submission processing
+		if(g_pre_iterations > 0)
+		{
+			uint32_t i = 0;
+			bool fast_completion = false;
+			for(i = 0; i < g_pre_iterations; i++)
+			{
+				ns_ctx = worker->ns_ctx;
+				while (ns_ctx != NULL) {
+					if(ns_ctx->entry->fn_table->check_io(ns_ctx) > 0)
+					{
+						fast_completion = true;
+					}
+					ns_ctx = ns_ctx->next;
+				}
+
+				tsc_current = spdk_get_ticks();
+
+				if (worker->lcore == g_master_core && tsc_current > tsc_next_print) {
+					tsc_next_print += g_tsc_rate;
+					print_periodic_performance();
+				}
+
+				if (tsc_current > tsc_end) {
+					break;
+				}
+
+				if(fast_completion)
+					break;
+			}
+
+			if(tsc_current > tsc_end)
+			{
+				break;
+			}
+
+			if(fast_completion)
+				continue;
+		}
+
 		// Sleep
 		if(g_sleep_interval > 0)
 			sleep_nanos(g_sleep_interval * 1000);
@@ -1861,7 +1902,7 @@ parse_args(int argc, char **argv)
 	long int val;
 	int rc;
 
-	while ((op = getopt(argc, argv, "c:e:i:lo:q:r:k:s:t:w:z:C:DGHILM:NP:RT:U:V")) != -1) {
+	while ((op = getopt(argc, argv, "c:e:i:lo:q:r:k:s:t:w:z:y:C:DGHILM:NP:RT:U:V")) != -1) {
 		switch (op) {
 		case 'i':
 		case 'C':
@@ -1874,6 +1915,7 @@ parse_args(int argc, char **argv)
 		case 'M':
 		case 'U':
 		case 'z':
+		case 'y':
 			val = spdk_strtol(optarg, 10);
 			if (val < 0) {
 				fprintf(stderr, "Converting a string to integer failed\n");
@@ -1917,6 +1959,16 @@ parse_args(int argc, char **argv)
 				break;
 			#else
 				fprintf(stderr, "%s must be configured with smart polling for -z\n",
+					argv[0]);
+				usage(argv[0]);
+				return 1;
+			#endif
+			case 'y':
+			#ifdef SMART_POLL
+				g_pre_iterations = val;
+				break;
+			#else
+				fprintf(stderr, "%s must be configured with smart polling for -y\n",
 					argv[0]);
 				usage(argv[0]);
 				return 1;
