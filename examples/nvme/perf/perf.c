@@ -53,6 +53,8 @@
 #include "spdk/log.h"
 #include "spdk/likely.h"
 
+#include <zedro_transport.h>
+
 #ifdef SPDK_CONFIG_URING
 #include <liburing.h>
 
@@ -2137,6 +2139,12 @@ register_workers(void)
 	g_num_workers = 0;
 
 	SPDK_ENV_FOREACH_CORE(i) {
+
+		// Do no use cores reserved for zedro transport
+		if(zedro_transport_core(i)) {
+			continue;
+		}
+
 		worker = calloc(1, sizeof(*worker));
 		if (worker == NULL) {
 			fprintf(stderr, "Unable to allocate worker\n");
@@ -2245,6 +2253,8 @@ register_controllers(void)
 		fprintf(stderr, "Failed to initialize VMD."
 			" Some NVMe devices can be unavailable.\n");
 	}
+
+	printf("vmd init done\n");
 
 	TAILQ_FOREACH(trid_entry, &g_trid_list, tailq) {
 		if (spdk_nvme_probe(&trid_entry->trid, trid_entry, probe_cb, attach_cb, NULL) != 0) {
@@ -2384,17 +2394,26 @@ int main(int argc, char **argv)
 		opts.core_mask = g_core_mask;
 	}
 
+	char new_coremask[128];
+	zedro_transport_update_coremask(opts.core_mask, new_coremask);
+	fprintf(stderr, "Zedro updated coremask: %s\n", new_coremask);
+	opts.core_mask = new_coremask;
+
+
 	if (g_dpdk_mem) {
 		opts.mem_size = g_dpdk_mem;
 	}
 	if (g_no_pci) {
 		opts.no_pci = g_no_pci;
 	}
+	opts.no_pci = false;
 	if (spdk_env_init(&opts) < 0) {
 		fprintf(stderr, "Unable to initialize SPDK env\n");
 		rc = -1;
 		goto cleanup;
 	}
+
+	zedro_transport_init();
 
 	g_tsc_rate = spdk_get_ticks_hz();
 
@@ -2470,6 +2489,8 @@ cleanup:
 	if (rc != 0) {
 		fprintf(stderr, "%s: errors occured\n", argv[0]);
 	}
+
+	zedro_transport_close();
 
 	return rc;
 }

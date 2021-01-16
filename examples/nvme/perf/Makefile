@@ -45,6 +45,9 @@ CFLAGS += -DHAVE_LIBAIO
 CFLAGS += -DSMART_POLL
 endif
 
+.syslibs:
+	$(Q)echo -n '$(SYS_LIBS) '
+
 install: $(APP)
 	$(INSTALL_EXAMPLE)
 
