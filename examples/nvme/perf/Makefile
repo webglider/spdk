@@ -37,6 +37,8 @@ APP = perf
 
 include $(SPDK_ROOT_DIR)/mk/nvme.libtest.mk
 
+include $(SPDK_ROOT_DIR)/mk/zedro.mk
+
 ifeq ($(OS),Linux)
 SYS_LIBS += -laio
 CFLAGS += -DHAVE_LIBAIO
