@@ -34,13 +34,20 @@
 SPDK_ROOT_DIR := $(abspath $(CURDIR)/../../..)
 include $(SPDK_ROOT_DIR)/mk/spdk.common.mk
 
+ifneq ($(CONFIG_ZEDRO),)
 include $(SPDK_ROOT_DIR)/mk/zedro.mk
+endif
 
 SO_VER := 2
 SO_MINOR := 0
 
 LIBNAME = sock_posix
+ifneq ($(CONFIG_ZEDRO),)
+C_SRCS = zedro.c
+else
 C_SRCS = posix.c
+endif
+
 
 
 SPDK_MAP_FILE = $(SPDK_ROOT_DIR)/mk/spdk_blank.map
