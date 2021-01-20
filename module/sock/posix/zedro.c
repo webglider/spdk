@@ -190,6 +190,7 @@ static ssize_t _sock_writev(struct spdk_posix_sock *sock, struct iovec *iov, int
 static int
 _sock_flush(struct spdk_sock *sock)
 {
+	// printf("_sock_flush called\n");
 	struct spdk_posix_sock *psock = __posix_sock(sock);
 	struct iovec iovs[IOV_BATCH_SIZE];
 	int iovcnt;
@@ -309,6 +310,7 @@ posix_sock_flush(struct spdk_sock *_sock)
 static ssize_t
 posix_sock_readv(struct spdk_sock *_sock, struct iovec *iov, int iovcnt)
 {
+	printf("readv called\n");
 	struct spdk_posix_sock *sock = __posix_sock(_sock);
     struct zedro_sock *zsock = sock->zsock;
 	int rc, i;
@@ -319,15 +321,20 @@ posix_sock_readv(struct spdk_sock *_sock, struct iovec *iov, int iovcnt)
 	recv_bytes = 0;
 	for (i = 0; i < iovcnt; i++) {
         rc = zsock_recv(zsock, iov[i].iov_base, iov[i].iov_len);
+		if(rc > 0) {
+			recv_bytes += rc;
+		}
         if(rc <= 0 || rc < (int) iov[i].iov_len) {
             break;
         }
 	}
 
     if(recv_bytes > 0) {
+		printf("readv return %d\n", recv_bytes);
         return recv_bytes;
     } else {
         errno = EAGAIN;
+		printf("readv return -1\n");
         return -1;
     }
 }
@@ -347,6 +354,7 @@ posix_sock_recv(struct spdk_sock *sock, void *buf, size_t len)
 static ssize_t
 posix_sock_writev(struct spdk_sock *_sock, struct iovec *iov, int iovcnt)
 {
+	printf("writev called\n");
 	struct spdk_posix_sock *sock = __posix_sock(_sock);
 	int rc;
 
@@ -369,6 +377,7 @@ posix_sock_writev(struct spdk_sock *_sock, struct iovec *iov, int iovcnt)
 static void
 posix_sock_writev_async(struct spdk_sock *sock, struct spdk_sock_request *req)
 {
+	printf("writev_async called\n");
 	int rc;
 
 	spdk_sock_request_queue(sock, req);
