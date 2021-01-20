@@ -295,6 +295,8 @@ _sock_flush(struct spdk_sock *sock)
 		req = TAILQ_FIRST(&sock->queued_reqs);
 	}
 
+	zedro_sockets_poll();
+
 	return 0;
 }
 
@@ -311,6 +313,8 @@ posix_sock_readv(struct spdk_sock *_sock, struct iovec *iov, int iovcnt)
     struct zedro_sock *zsock = sock->zsock;
 	int rc, i;
     ssize_t recv_bytes;
+
+	zedro_sockets_poll();
 
 	recv_bytes = 0;
 	for (i = 0; i < iovcnt; i++) {
