@@ -275,6 +275,17 @@ static int g_file_optind; /* Index of first filename in argv */
 static inline void
 task_complete(struct perf_task *task);
 
+static void spdk_env_thread_wait_usable(void) {
+	uint32_t i;
+	SPDK_ENV_FOREACH_CORE(i) {
+		if(zedro_transport_core(i)) {
+			continue;
+		}
+
+		rte_eal_wait_lcore(i);
+	}
+}
+
 #ifdef SMART_POLL
 void sleep_nanos(long delay);
 // Yield for certain number of nanoseconds
@@ -2473,7 +2484,8 @@ int main(int argc, char **argv)
 	assert(master_worker != NULL);
 	rc = work_fn(master_worker);
 
-	spdk_env_thread_wait_all();
+	// spdk_env_thread_wait_all();
+	spdk_env_thread_wait_usable();
 
 	print_stats();
 
