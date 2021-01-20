@@ -155,6 +155,8 @@ posix_sock_accept(struct spdk_sock *_sock)
 		return NULL;
 	}
 
+	printf("accept new_sock port: %d\n", new_zsock->port);
+
 	return &new_sock->base;
 }
 
@@ -335,7 +337,7 @@ posix_sock_readv(struct spdk_sock *_sock, struct iovec *iov, int iovcnt)
 	}
 
     if(recv_bytes > 0) {
-		printf("readv return %d\n", recv_bytes);
+		printf("[socket port %d]: readv return %d\n", zsock->port, recv_bytes);
         return recv_bytes;
     } else {
         errno = EAGAIN;
