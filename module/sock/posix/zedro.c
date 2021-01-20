@@ -190,6 +190,8 @@ static ssize_t _sock_writev(struct spdk_posix_sock *sock, struct iovec *iov, int
         write_bytes += iov[i].iov_len;
     }
 
+	printf("[socket port %d]: writev wrote %d\n", zsock->port, write_bytes);
+
     return write_bytes;
 }
 
