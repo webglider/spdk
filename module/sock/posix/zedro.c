@@ -65,6 +65,7 @@ static int
 posix_sock_getaddr(struct spdk_sock *_sock, char *saddr, int slen, uint16_t *sport,
 		   char *caddr, int clen, uint16_t *cport)
 {
+	printf("getaddr called\n");
 	struct spdk_posix_sock *sock = __posix_sock(_sock);
 	struct zedro_sock *zsock = sock->zsock;
 
@@ -75,6 +76,10 @@ posix_sock_getaddr(struct spdk_sock *_sock, char *saddr, int slen, uint16_t *spo
     }
 
     zsock_get_addr(zsock, saddr, slen, sport, caddr, clen, cport);
+
+	*sport = 4420;
+
+	printf("getaddr result: %s %d %s %d\n", saddr, *sport, caddr, *cport);
 
 	return 0;
 }
@@ -310,7 +315,7 @@ posix_sock_flush(struct spdk_sock *_sock)
 static ssize_t
 posix_sock_readv(struct spdk_sock *_sock, struct iovec *iov, int iovcnt)
 {
-	printf("readv called\n");
+	// printf("readv called\n");
 	struct spdk_posix_sock *sock = __posix_sock(_sock);
     struct zedro_sock *zsock = sock->zsock;
 	int rc, i;
@@ -334,7 +339,7 @@ posix_sock_readv(struct spdk_sock *_sock, struct iovec *iov, int iovcnt)
         return recv_bytes;
     } else {
         errno = EAGAIN;
-		printf("readv return -1\n");
+		// printf("readv return -1\n");
         return -1;
     }
 }
