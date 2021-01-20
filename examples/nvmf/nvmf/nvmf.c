@@ -43,6 +43,8 @@
 
 #include "spdk_internal/event.h"
 
+#include <zedro_transport.h>
+
 #define NVMF_DEFAULT_SUBSYSTEMS		32
 #define ACCEPT_TIMEOUT_US		10000 /* 10ms */
 
@@ -111,6 +113,21 @@ static struct spdk_poller *g_migrate_pg_poller = NULL;
 
 static void nvmf_target_advance_state(void);
 static int nvmf_schedule_spdk_thread(struct spdk_thread *thread);
+
+static uint32_t spdk_env_usable_cores(void) {
+	return spdk_env_get_core_count() - zedro_transport_num_cores();
+}
+
+static void spdk_env_thread_wait_usable(void) {
+	uint32_t i;
+	SPDK_ENV_FOREACH_CORE(i) {
+		if(zedro_transport_core(i)) {
+			continue;
+		}
+
+		rte_eal_wait_lcore(i);
+	}
+}
 
 static void
 usage(char *program_name)
@@ -264,12 +281,14 @@ nvmf_schedule_spdk_thread(struct spdk_thread *thread)
 	 * solves this is by using internal rings for messages between reactors
 	 */
 	pthread_mutex_lock(&g_mutex);
-	for (i = 0; i < spdk_env_get_core_count(); i++) {
+	for (i = 0; i < spdk_env_usable_cores(); i++) {
 		if (g_next_reactor == NULL) {
 			g_next_reactor = TAILQ_FIRST(&g_reactors);
 		}
 		nvmf_reactor = g_next_reactor;
 		g_next_reactor = TAILQ_NEXT(g_next_reactor, link);
+
+		printf("Checking reactor\n");
 
 		/* each spdk_thread has the core affinity */
 		if (spdk_cpuset_get_cpu(cpumask, nvmf_reactor->core)) {
@@ -279,7 +298,7 @@ nvmf_schedule_spdk_thread(struct spdk_thread *thread)
 	}
 	pthread_mutex_unlock(&g_mutex);
 
-	if (i == spdk_env_get_core_count()) {
+	if (i == spdk_env_usable_cores()) {
 		fprintf(stderr, "failed to schedule spdk thread\n");
 		return -1;
 	}
@@ -354,6 +373,13 @@ nvmf_init_threads(void)
 	 * work queue.
 	 */
 	SPDK_ENV_FOREACH_CORE(i) {
+
+		// Do no use cores reserved for zedro transport
+		if(zedro_transport_core(i)) {
+			printf("Skipping zedro core\n");
+			continue;
+		}
+
 		nvmf_reactor = calloc(1, sizeof(struct nvmf_reactor));
 		if (!nvmf_reactor) {
 			fprintf(stderr, "failed to alloc nvmf reactor\n");
@@ -372,6 +398,7 @@ nvmf_init_threads(void)
 		}
 
 		TAILQ_INSERT_TAIL(&g_reactors, nvmf_reactor, link);
+		printf("Inserted reactor into list\n");
 
 		if (i == master_core) {
 			g_master_reactor = nvmf_reactor;
@@ -579,9 +606,9 @@ nvmf_tgt_create_poll_groups_done(void *ctx)
 
 	TAILQ_INSERT_TAIL(&g_poll_groups, pg, link);
 
-	assert(g_num_poll_groups < spdk_env_get_core_count());
+	assert(g_num_poll_groups < spdk_env_usable_cores());
 
-	if (++g_num_poll_groups == spdk_env_get_core_count()) {
+	if (++g_num_poll_groups == spdk_env_usable_cores()) {
 		fprintf(stdout, "create targets's poll groups done\n");
 
 		g_target_state = NVMF_INIT_START_SUBSYSTEMS;
@@ -628,6 +655,11 @@ nvmf_poll_groups_create(void)
 	assert(g_init_thread != NULL);
 
 	SPDK_ENV_FOREACH_CORE(i) {
+		if(zedro_transport_core(i)) 
+		{
+			continue;
+		}
+
 		spdk_cpuset_zero(&tmp_cpumask);
 		spdk_cpuset_set_cpu(&tmp_cpumask, i, true);
 		snprintf(thread_name, sizeof(thread_name), "nvmf_tgt_poll_group_%u", i);
@@ -712,11 +744,14 @@ migrate_poll_group_by_rr(void *ctx)
 	struct spdk_cpuset cpumask = {};
 
 	current_core = spdk_env_get_current_core();
-	next_core = spdk_env_get_next_core(current_core);
-	if (next_core == UINT32_MAX) {
-		next_core = spdk_env_get_first_core();
-	}
-
+	next_core = current_core;
+	do{
+		next_core = spdk_env_get_next_core(next_core);
+		if (next_core == UINT32_MAX) {
+			next_core = spdk_env_get_first_core();
+		}
+	} while(zedro_transport_core(next_core));
+	
 	spdk_cpuset_set_cpu(&cpumask, next_core, true);
 
 	spdk_thread_set_cpumask(&cpumask);
@@ -877,10 +912,19 @@ int main(int argc, char **argv)
 		return rc;
 	}
 
+	char new_coremask[128];
+	zedro_transport_update_coremask(opts.core_mask, new_coremask);
+	fprintf(stderr, "Zedro updated coremask: %s\n", new_coremask);
+	opts.core_mask = new_coremask;
+
+	printf("Num cores reserved for zedro: %d\n", zedro_transport_num_cores());
+
 	if (spdk_env_init(&opts) < 0) {
 		fprintf(stderr, "unable to initialize SPDK env\n");
 		return -EINVAL;
 	}
+
+	zedro_transport_init();
 
 	/* Initialize the threads */
 	rc = nvmf_init_threads();
@@ -899,7 +943,11 @@ int main(int argc, char **argv)
 
 	nvmf_reactor_run(g_master_reactor);
 
-	spdk_env_thread_wait_all();
+	// spdk_env_thread_wait_all();
+	spdk_env_thread_wait_usable();
 	nvmf_destroy_threads();
+
+	zedro_transport_close();
+
 	return rc;
 }
