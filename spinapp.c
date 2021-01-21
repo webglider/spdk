@@ -14,15 +14,15 @@ int main(int argc, const char **argv) {
     }
 
     int duration = atoi(argv[1]);
-    clock_t duration_clks = duration * CLOCKS_PER_SEC;
+    // clock_t duration_clks = duration * CLOCKS_PER_SEC;
 
     uint64_t count = 0;
 
-    clock_t start_tim = clock();
+    time_t start_tim = time(NULL);
 
     while(1) 
     {
-        if(count % 1000000 == 0 && clock() - start_tim >= duration_clks) {
+        if(count % 1000000 == 0 && time(NULL) - start_tim >= duration) {
             break;
         }
         count += 1;
