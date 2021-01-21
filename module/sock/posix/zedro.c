@@ -65,7 +65,7 @@ static int
 posix_sock_getaddr(struct spdk_sock *_sock, char *saddr, int slen, uint16_t *sport,
 		   char *caddr, int clen, uint16_t *cport)
 {
-	printf("getaddr called\n");
+	// printf("getaddr called\n");
 	struct spdk_posix_sock *sock = __posix_sock(_sock);
 	struct zedro_sock *zsock = sock->zsock;
 
@@ -79,7 +79,7 @@ posix_sock_getaddr(struct spdk_sock *_sock, char *saddr, int slen, uint16_t *spo
 
 	*sport = 4420;
 
-	printf("getaddr result: %s %d %s %d\n", saddr, *sport, caddr, *cport);
+	// printf("getaddr result: %s %d %s %d\n", saddr, *sport, caddr, *cport);
 
 	return 0;
 }
@@ -155,7 +155,7 @@ posix_sock_accept(struct spdk_sock *_sock)
 		return NULL;
 	}
 
-	printf("accept new_sock port: %d\n", new_zsock->port);
+	// printf("accept new_sock port: %d\n", new_zsock->port);
 
 	return &new_sock->base;
 }
@@ -190,7 +190,7 @@ static ssize_t _sock_writev(struct spdk_posix_sock *sock, struct iovec *iov, int
         write_bytes += iov[i].iov_len;
     }
 
-	printf("[socket port %d]: writev wrote %d\n", zsock->port, write_bytes);
+	// printf("[socket port %d]: writev wrote %d\n", zsock->port, write_bytes);
 
     return write_bytes;
 }
@@ -339,7 +339,7 @@ posix_sock_readv(struct spdk_sock *_sock, struct iovec *iov, int iovcnt)
 	}
 
     if(recv_bytes > 0) {
-		printf("[socket port %d]: readv return %d\n", zsock->port, recv_bytes);
+		// printf("[socket port %d]: readv return %d\n", zsock->port, recv_bytes);
         return recv_bytes;
     } else {
         errno = EAGAIN;
@@ -363,7 +363,7 @@ posix_sock_recv(struct spdk_sock *sock, void *buf, size_t len)
 static ssize_t
 posix_sock_writev(struct spdk_sock *_sock, struct iovec *iov, int iovcnt)
 {
-	printf("writev called\n");
+	// printf("writev called\n");
 	struct spdk_posix_sock *sock = __posix_sock(_sock);
 	int rc;
 
@@ -386,7 +386,7 @@ posix_sock_writev(struct spdk_sock *_sock, struct iovec *iov, int iovcnt)
 static void
 posix_sock_writev_async(struct spdk_sock *sock, struct spdk_sock_request *req)
 {
-	printf("writev_async called\n");
+	// printf("writev_async called\n");
 	int rc;
 
 	spdk_sock_request_queue(sock, req);
