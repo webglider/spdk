@@ -254,7 +254,7 @@ static bool g_data_digest;
 static bool g_no_shn_notification;
 static bool g_mix_specified;
 /* Default to 10 seconds for the keep alive value. This value is arbitrary. */
-static uint32_t g_keep_alive_timeout_in_ms = 10000;
+static uint32_t g_keep_alive_timeout_in_ms = 0;
 #ifdef SMART_POLL
 static uint32_t g_sleep_interval = 0;
 static uint32_t g_pre_iterations = 0;
@@ -2454,11 +2454,11 @@ int main(int argc, char **argv)
 		goto cleanup;
 	}
 
-	rc = pthread_create(&thread_id, NULL, &nvme_poll_ctrlrs, NULL);
-	if (rc != 0) {
-		fprintf(stderr, "Unable to spawn a thread to poll admin queues.\n");
-		goto cleanup;
-	}
+	// rc = pthread_create(&thread_id, NULL, &nvme_poll_ctrlrs, NULL);
+	// if (rc != 0) {
+	// 	fprintf(stderr, "Unable to spawn a thread to poll admin queues.\n");
+	// 	goto cleanup;
+	// }
 
 	if (associate_workers_with_ns() != 0) {
 		rc = -1;
