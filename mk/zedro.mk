@@ -14,8 +14,15 @@ DPDK_LIBS += -lrte_mempool
 DPDK_LIBS += -lrte_mempool_stack
 DPDK_LIBS += -lrte_ring
 
+ifeq ($(ZEDRO_MLX4),y)
 DPDK_LIBS += -Wl,-whole-archive -lrte_pmd_mlx4 -Wl,-no-whole-archive
 DPDK_LIBS += -libverbs -lmlx4
+endif
+
+ifeq ($(ZEDRO_MLX5),y)
+DPDK_LIBS += -Wl,-whole-archive -lrte_pmd_mlx5 -Wl,-no-whole-archive
+DPDK_LIBS += -libverbs -lmlx5
+endif
 
 SYS_LIBS += -l:zedro -lm -lnuma
 SYS_LIBS += $(DPDK_LIBS)
