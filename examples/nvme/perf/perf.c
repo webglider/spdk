@@ -1929,6 +1929,7 @@ parse_args(int argc, char **argv)
 		case 'U':
 		case 'z':
 		case 'y':
+		case 'x':
 			val = spdk_strtol(optarg, 10);
 			if (val < 0) {
 				fprintf(stderr, "Converting a string to integer failed\n");
