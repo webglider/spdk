@@ -1915,7 +1915,7 @@ parse_args(int argc, char **argv)
 	long int val;
 	int rc;
 
-	while ((op = getopt(argc, argv, "c:e:i:lo:q:r:k:s:t:w:z:y:C:DGHILM:NP:RT:U:V")) != -1) {
+	while ((op = getopt(argc, argv, "c:e:i:lo:q:r:k:s:t:w:z:y:x:C:DGHILM:NP:RT:U:V")) != -1) {
 		switch (op) {
 		case 'i':
 		case 'C':
