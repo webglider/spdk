@@ -258,6 +258,7 @@ static uint32_t g_keep_alive_timeout_in_ms = 0;
 #ifdef SMART_POLL
 static uint32_t g_sleep_interval = 0;
 static uint32_t g_pre_iterations = 0;
+static uint32_t g_wait_completions = 1;
 #endif
 
 static const char *g_core_mask;
@@ -1372,13 +1373,12 @@ work_fn(void *arg)
 			sleep_nanos(g_sleep_interval * 1000);
 
 		// Poll for completions
-		bool completion = false;
-		while(!completion)
+		uint32_t completions = 0;
+		while(completions < g_wait_completions)
 		{
 			ns_ctx = worker->ns_ctx;
 			while (ns_ctx != NULL) {
-				if(ns_ctx->entry->fn_table->check_io(ns_ctx) > 0)
-					completion = true;
+				completions += ns_ctx->entry->fn_table->check_io(ns_ctx);
 				ns_ctx = ns_ctx->next;
 			}
 
@@ -1982,6 +1982,16 @@ parse_args(int argc, char **argv)
 				break;
 			#else
 				fprintf(stderr, "%s must be configured with smart polling for -y\n",
+					argv[0]);
+				usage(argv[0]);
+				return 1;
+			#endif
+			case 'x':
+			#ifdef SMART_POLL
+				g_wait_completions = val;
+				break;
+			#else
+				fprintf(stderr, "%s must be configured with smart polling for -x\n",
 					argv[0]);
 				usage(argv[0]);
 				return 1;
